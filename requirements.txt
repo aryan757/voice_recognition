@@ -1,4 +1,4 @@
-librosa==0.10.0
+librosa
 torch
 streamlit
 numpy
