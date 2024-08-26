@@ -1,8 +1,9 @@
-librosa
-torch
-streamlit
-numpy
-scikit-learn
+torch==1.13.1
+torchaudio==0.13.1
+librosa==0.10.0
+streamlit==1.22.0
+numpy==1.23.5
+scikit-learn==1.2.2
 pydub
 time
 soundfile 
