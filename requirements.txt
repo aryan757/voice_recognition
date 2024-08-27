@@ -1,5 +1,5 @@
-librosa==0.10.1
+librosa
 numpy==1.24.3
 torch==2.0.1
-streamlit==1.24.0
-pyaudio==0.2.13
+streamlit
+pyaudio
