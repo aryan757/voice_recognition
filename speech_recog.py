@@ -4,10 +4,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import streamlit as st
-#from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings
-import time 
-import sounddevice as sd
-import soundfile as sf
+import pyaudio
+import wave
 import tempfile
 import os
 
@@ -64,15 +62,6 @@ def train_model():
     return model
 
 # 4. Prediction Function
-
-# def predict(model, file_path):
-#     features = preprocess_voice(file_path)
-#     features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
-#     with torch.no_grad():
-#         output = model(features_tensor)
-#     predicted_label = torch.argmax(output, dim=1).item()
-#     return predicted_label
-
 def predict(model, audio_data, sample_rate=16000):
     # Convert audio data to MFCC features
     mfcc = librosa.feature.mfcc(y=audio_data.flatten(), sr=sample_rate, n_mfcc=13)
@@ -84,53 +73,35 @@ def predict(model, audio_data, sample_rate=16000):
     predicted_label = torch.argmax(output, dim=1).item()
     return predicted_label
 
-# def main():
-#     st.title("Voice Recognition System")
-
-#     model = train_model()  # Train the model when the app starts
-
-#     st.header("Option 1: Upload a voice sample")
-#     uploaded_file = st.file_uploader("Upload a voice sample", type=["wav", "mp3"])
-
-#     if uploaded_file is not None:
-#         st.audio(uploaded_file, format="audio/wav")
-#         predicted_label = predict(model, uploaded_file)
-#         if predicted_label == 0:  # Adjust according to your labels
-#             st.success("Unlocked!")
-#         else:
-#             st.error("Access Denied.")
-
-#     st.header("Option 2: Record your voice")
+# 5. Recording Function using pyaudio and wave
+def record_audio(duration=5, sample_rate=16000, channels=1):
+    p = pyaudio.PyAudio()
+    stream = p.open(format=pyaudio.paInt16,
+                    channels=channels,
+                    rate=sample_rate,
+                    input=True,
+                    frames_per_buffer=1024)
     
-#     # Add a button to start recording
-#     if st.button("Start Recording"):
-#         with st.spinner("Recording for 5 seconds..."):
-#             audio_data = sd.rec(int(5 * 16000), samplerate=16000, channels=1)
-#             sd.wait()
-        
-#         st.success("Recording completed!")
-        
-#         # Save the recorded audio to a temporary file
-#         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-#             sf.write(temp_audio.name, audio_data, 16000)
-        
-#         # Play back the recorded audio
-#         st.audio(temp_audio.name)
-        
-#         # Make prediction
-#         predicted_label = predict(model, audio_data.flatten(), 16000)
-        
-#         if predicted_label == 0:  # Adjust according to your labels
-#             st.success("Voice recognized! Unlocked!")
-#         else:
-#             st.error("Voice not recognized. Access Denied.")
-        
-#         # Clean up the temporary file
-#         os.unlink(temp_audio.name)
-
-# if __name__ == "__main__":
-#     main()
-
+    frames = []
+    
+    for i in range(0, int(sample_rate / 1024 * duration)):
+        data = stream.read(1024)
+        frames.append(data)
+    
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    
+    # Save the recorded audio to a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        wf = wave.open(temp_audio, 'wb')
+        wf.setnchannels(channels)
+        wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(sample_rate)
+        wf.writeframes(b''.join(frames))
+        wf.close()
+    
+    return temp_audio.name
 
 def main():
     st.title("Voice Recognition System")
@@ -145,11 +116,11 @@ def main():
         audio, sr = librosa.load(uploaded_file, sr=None)
         predicted_label = predict(model, audio, sr)
         if predicted_label == 0:  # Adjust according to your labels
-            st.success("Hurray its a match! It's Nirupam !!")
-        if predicted_label == 1:
-            st.success("Hurray its a match! It's Aryan!")
-        if predicted_label == 2:
-            st.success("Hurray its a match ! It's Ashutosh !")
+            st.success("Hurray it's a match! It's Nirupam !!")
+        elif predicted_label == 1:
+            st.success("Hurray it's a match! It's Aryan!")
+        elif predicted_label == 2:
+            st.success("Hurray it's a match! It's Ashutosh!")
         else:
             st.error("Access Denied.")
 
@@ -158,32 +129,28 @@ def main():
     # Add a button to start recording
     if st.button("Start Recording"):
         with st.spinner("Recording for 5 seconds..."):
-            audio_data = sd.rec(int(5 * 16000), samplerate=16000, channels=1)
-            sd.wait()
+            audio_file = record_audio(duration=5, sample_rate=16000, channels=1)
         
         st.success("Recording completed!")
         
-        # Save the recorded audio to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            sf.write(temp_audio.name, audio_data, 16000)
-        
         # Play back the recorded audio
-        st.audio(temp_audio.name)
+        st.audio(audio_file)
         
         # Make prediction
-        predicted_label = predict(model, audio_data)
+        audio, sr = librosa.load(audio_file, sr=None)
+        predicted_label = predict(model, audio, sr)
         
         if predicted_label == 0:  # Adjust according to your labels
-            st.success("Hurray its a match! It's Nirupam !!")
-        if predicted_label == 1:
-            st.success("Hurray its a match! It's Aryan!")
-        if predicted_label == 2:
-            st.success("Hurray its a match ! It's Ashutosh !")
+            st.success("Hurray it's a match! It's Nirupam !!")
+        elif predicted_label == 1:
+            st.success("Hurray it's a match! It's Aryan!")
+        elif predicted_label == 2:
+            st.success("Hurray it's a match! It's Ashutosh!")
         else:
-            st.error("Voice not Authorised!!!")
+            st.error("Voice not Authorized!!!")
         
         # Clean up the temporary file
-        os.unlink(temp_audio.name)
+        os.unlink(audio_file)
 
 if __name__ == "__main__":
     main()
